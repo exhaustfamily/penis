@@ -1,0 +1,168 @@
+import sqlite3
+import os
+
+# Путь к файлу базы данных SQLite
+db_file = 'library.db'
+
+# Функция для выполнения SQL-запросов и вывода результатов
+def execute_sql_query(cursor, query, params=None):
+    cursor.execute(query, params or ())
+    return cursor.fetchall()
+
+def print_query_results(results):
+    if not results:
+        print("Результат запроса пуст")
+    else:
+        for row in results:
+            print(row)
+    print("\n")
+
+# Основной код программы
+def main():
+    # Проверка существования файла базы данных
+    if not os.path.isfile(db_file):
+        # Если файл базы данных не существует, создаем его и подключаемся
+        conn = sqlite3.connect(db_file)
+        cursor = conn.cursor()
+
+        # Создание таблиц
+        cursor.execute('''CREATE TABLE IF NOT EXISTS Genre (
+            GenreID INTEGER PRIMARY KEY,
+            GenreName TEXT NOT NULL UNIQUE,
+            Description TEXT
+        )''')
+
+        cursor.execute('''CREATE TABLE IF NOT EXISTS Author (
+            AuthorID INTEGER PRIMARY KEY,
+            Name TEXT NOT NULL,
+            BirthYear INTEGER CHECK (BirthYear <= 2010),
+            Nationality TEXT
+        )''')
+
+        cursor.execute('''CREATE TABLE IF NOT EXISTS Book (
+            BookID INTEGER PRIMARY KEY,
+            Author INTEGER NOT NULL,
+            Genre INTEGER NOT NULL,
+            Title TEXT NOT NULL,
+            PublicationYear INTEGER NOT NULL,
+            ISBN TEXT UNIQUE,
+            FOREIGN KEY (Author) REFERENCES Author(AuthorID),
+            FOREIGN KEY (Genre) REFERENCES Genre(GenreID)
+        )''')
+
+        cursor.execute('''CREATE TABLE IF NOT EXISTS BookInstance (
+            BookInstanceID INTEGER PRIMARY KEY,
+            Book INTEGER NOT NULL,
+            VolumeNumber INTEGER NOT NULL DEFAULT 1,
+            VolumeStatus TEXT,
+            Condition TEXT,
+            FOREIGN KEY (Book) REFERENCES Book(BookID)
+        )''')
+
+        # Добавление данных в таблицы
+        # Добавление жанров
+        genres_data = [
+            ("роман", "Произведение прозаического жанра, длинное по объему, описывающее развитие сюжета и психологию персонажей"),
+            ("драма", "Произведение, предназначенное для театрального исполнения, с акцентом на драматические события и конфликты"),
+            ("повесть", "Произведение прозаического жанра, короткое по объему, часто с ограниченным числом персонажей и событий"),
+            ("поэма", "Произведение, представляющее собой лиро-эпическую или эпическую форму, чаще всего написанное в стихотворной форме")
+        ]
+        cursor.executemany("INSERT INTO Genre (GenreName, Description) VALUES (?, ?)", genres_data)
+
+        # Добавление авторов
+        authors_data = [
+            ("М. Горький", 1868, "русский"),
+            ("А. Чехов", 1860, "русский"),
+            ("Т. Шевченко", 1814, "украинец"),
+            ("Л. Толстой", 1828, "русский")
+        ]
+        cursor.executemany("INSERT INTO Author (Name, BirthYear, Nationality) VALUES (?, ?, ?)", authors_data)
+
+        # Добавление книг
+        books_data = [
+            (1, 1, "Мать", 1996, "978-1234567890"),
+            (1, 2, "На дне", 1992, "978-0987654321"),
+            (2, 3, "Каштанка", 2017, "978-5432167890"),
+            (2, 3, "Вишневый сад", 2017, "978-6432167890"),
+            (3, 4, "Гайдамаки", 1930, "978-2345678901"),
+            (4, 1, "Война и мир", 2025, "978-3456789012")
+        ]
+        cursor.executemany("INSERT INTO Book (Author, Genre, Title, PublicationYear, ISBN) VALUES (?, ?, ?, ?, ?)", books_data)
+
+        # Добавление экземпляров книг
+        instances_data = [
+            (1, 1, "Доступен", "Хорошее"),
+            (1, 2, "Доступен", "Хорошее"),
+            (2, 1, "Доступен", "Хорошее"),
+            (2, 2, "Доступен", "Хорошее"),
+            (3, 1, "Доступен", "Отличное"),
+
+(3, 2, "Доступен", "Отличное"),
+            (4, 1, "Доступен", "Хорошее"),
+            (5, 1, "Доступен", "Удовлетворительное"),
+            (6, 1, "Доступен", "Отличное")
+        ]
+        cursor.executemany("INSERT INTO BookInstance (Book, VolumeNumber, VolumeStatus, Condition) VALUES (?, ?, ?, ?)", instances_data)
+
+        # Сохранение изменений
+        conn.commit()
+
+    else:
+        # Если файл базы данных существует, просто подключаемся к нему
+        conn = sqlite3.connect(db_file)
+        cursor = conn.cursor()
+
+    # Выполнение SQL-запросов
+    # 1. Вывод названий жанров
+    print("Названия жанров:")
+    query = "SELECT GenreName FROM Genre"
+    results = execute_sql_query(cursor, query)
+    print_query_results(results)
+
+    # 2. Вывод названий жанров и их описаний
+    print("Названия жанров и их описания:")
+    query = "SELECT GenreName, Description FROM Genre"
+    results = execute_sql_query(cursor, query)
+    print_query_results(results)
+
+    # 3. Вывод фамилий всех авторов и их годов рождения
+    print("Фамилии авторов и их годы рождения:")
+    query = "SELECT Name, BirthYear FROM Author"
+    results = execute_sql_query(cursor, query)
+    print_query_results(results)
+
+    # 4. Вывод фамилий авторов, родившихся до 1850 года
+    print("Авторы, родившиеся до 1850 года:")
+    query = "SELECT Name FROM Author WHERE BirthYear < 1850"
+    results = execute_sql_query(cursor, query)
+    print_query_results(results)
+
+    # 5. Вывод фамилий авторов, отсортированных по алфавиту (в порядке возрастания)
+    print("Авторы, отсортированные по алфавиту:")
+    query = "SELECT Name FROM Author ORDER BY Name ASC"
+    results = execute_sql_query(cursor, query)
+    print_query_results(results)
+
+    # 6. Вывод названий книг, отсортированных в алфавитном порядке (в порядке убывания)
+    print("Названия книг, отсортированные по алфавиту (по убыванию):")
+    query = "SELECT Title FROM Book ORDER BY Title DESC"
+    results = execute_sql_query(cursor, query)
+    print_query_results(results)
+
+    # 7. Вывод названий книг, изданных до 2000 года
+    print("Названия книг, изданных до 2000 года:")
+    query = "SELECT Title FROM Book WHERE PublicationYear < 2000"
+    results = execute_sql_query(cursor, query)
+    print_query_results(results)
+
+    # 8. Вывод названий книг и их ISBN
+    print("Названия книг и их ISBN:")
+    query = "SELECT Title, ISBN FROM Book"
+    results = execute_sql_query(cursor, query)
+    print_query_results(results)
+
+    # Закрытие соединения с базой данных
+    conn.close()
+
+if name == "main":
+    main()
